@@ -4,4 +4,4 @@ require 'bundler'
 Bundler.require
 
 require './server.rb'
-run Backend.new
+run Letsauth::Backend.new
