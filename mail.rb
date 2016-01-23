@@ -37,7 +37,7 @@ module Letsauth
             Pony.mail(:to => self.address,
                         :from => "letsauth@example.org",
                         :subject => "Confirm Login",
-                        :body => "Please confirm your login by opening this link: \n\n: " + confirmationLink
+                        :body => "Please confirm your login by opening this link: \n\n " + confirmationLink
                     )
         end
 

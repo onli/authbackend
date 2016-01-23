@@ -8,6 +8,9 @@ module Letsauth
             self.token = token
             self.token = SecureRandom.hex if token.nil?
         end
-        
+
+        def to_s
+            return self.token.to_s
+        end
     end
 end
