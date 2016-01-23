@@ -34,7 +34,7 @@ module Letsauth
 
         def askConfirmation(token)
             confirmationLink = Backend::serverURL + "mailConfirm?mail=" + self.address + '&token=' + token.to_s
-            Pony.mail(:to => self.adress,
+            Pony.mail(:to => self.address,
                         :from => "letsauth@example.org",
                         :subject => "Confirm Login",
                         :body => "Please confirm your login by opening this link: \n\n: " + confirmationLink
