@@ -40,19 +40,48 @@ function checkConfirm(mail) {
         xhr.open('GET', url + '/confirm?mail=' + mail, true);
         xhr.onload = function(e) {
             if (this.status == 200) {
-                console.log("success");
-                showSuccess();
+                console.log("LA confirmed email to browser");
                 clearInterval(confirmInterval);
+                showActivity();
+                notifyServer(this.responseText);
+                
             }
         }
         xhr.send();
     }, 1000);
 }
 
+function notifyServer(token) {
+    console.log("checking token confirm status");
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/validate', true);
+    var formData = new FormData();
+    formData.append('token', token);
+    xhr.onload = function(e) {
+        if (this.status == 200) {
+            console.log("LA confirmed token to server");
+            showSuccess();
+        }
+        if (this.status == 403) {
+            console.log("LA id not confirm token to server");
+            showFailure();
+        }
+    }
+    xhr.send(formData);
+}
+
 function showSuccess() {
-    document.querySelector('#letsauth').innerHTML = "Success!";
+    document.querySelector('#letsauth').innerHTML = "Success! You are logged in.";
+}
+
+function showFailure() {
+    document.querySelector('#letsauth').innerHTML = "Error, you are not logged in";
+}
+
+function showActivity() {
+    document.querySelector('#letsauth').innerHTML = "Confirming login…";
 }
 
 function showLoader(container) {
-    container.innerHTML = "Loading… (normally, check emails or get redirected to an Oauth login, but this is just a demo, so wait)";
+    container.innerHTML = "Please check your mails!";
 }

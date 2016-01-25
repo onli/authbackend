@@ -8,8 +8,6 @@ module Letsauth
         end
 
         def confirm
-            # TODO: this would now use the background threadpool to send an email to the address with a confirmation link
-            # we assume that this works and instead wait for a bit before setting the local state to confirmed
             Backend::pool.process {
                 token = Token.new()
                 Backend::mails[self.address] = token
