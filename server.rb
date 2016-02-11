@@ -1,73 +1,70 @@
 #!/usr/bin/env ruby
 
 require './mail.rb'
-require './token.rb'
+require './mailtoken.rb'
+require './authtoken.rb'
 
 require 'sinatra/base'
 require 'thread/pool'
+require 'json/jwt'
+require 'httparty'
 
 module Letsauth
-
     class Backend < Sinatra::Application
 
         # to prevent worrying about databases, this global hash will allow to keep the confirmed mails
         # TODO: This needs a timeout
         class << self; attr_accessor :mails end
-        # RPs need to have a way to confirm that an access token is valid, easiest way is to ask. Thus it has to be stored
-        class << self; attr_accessor :validTokens end
+        # Place to store the additional information needed, like the origin
+        class << self; attr_accessor :authData end
         # threadpool for background tasks, like sending mails
         class << self; attr_accessor :pool end
-        # helfer variable, the url of this LA instance
-        class << self; attr_accessor :serverURL end 
+        # helper variable, the url of this LA instance
+        class << self; attr_accessor :serverURL end
+        # private key for authToken signature
+        class << self; attr_accessor :private_key end
         @mails = {}
-        @validTokens = {}
+        @authData = {}
         @pool = Thread.pool(2)
         @serverURL = "http://localhost:9292/"
+
+
+        configure do
+            if File.exists?('private_key')
+                Backend::private_key = OpenSSL::PKey::EC.new(File.read('private_key'))
+            else
+                Backend::private_key = OpenSSL::PKey::EC.new('secp521r1').generate_key
+                File.write('private_key', Backend::private_key.to_pem)
+                # Aso generate public key, see https://github.com/ruby/openssl/issues/29 for why this sucks so much
+                point = Backend::private_key.public_key
+                pub = OpenSSL::PKey::EC.new(point.group)
+                pub.public_key = point
+                File.write('public/public_key', pub.to_pem)
+            end
+        end
 
         post '/confirm' do
             headers 'Access-Control-Allow-Origin' => '*'
             # The RP asks a mail to be confirmed
+            Backend::authData[params[:mail]] = {:session_id => params[:session_id], :origin => request.env['HTTP_ORIGIN']}
             Mail.new(params[:mail]).confirm
-        end
-
-        get '/confirmtest' do
-            # The RP asks a mail to be confirmed
-            Mail.new(params[:mail]).confirm
-        end
-
-
-        get '/confirm' do
-            headers 'Access-Control-Allow-Origin' => '*'
-            # periodically (till we have a better solution) the RP will ask whether the mail is confirmed.
-            # Tell him yes (200) or no (403)
-            # TODO: this would something to protect it from other parties than the original RP
-            if Mail.new(params[:mail]).confirmed?
-                token = Token.new
-                Backend::validTokens[token.to_s] = params[:mail]
-                return token.to_s
-            else
-                status 403
-            end
         end
 
         get '/mailConfirm' do
             # If user clicks on the link in the confirmation mail, he and his token end here
-            if Mail.new(params[:mail]).confirmToken(params[:token])
+            mail = params[:mail]
+            if Mail.new(mail).confirmToken(params[:token])
+                authToken = AuthToken.new(origin: Backend::authData[mail][:origin], mail: params[:mail], nonce: Backend::authData[mail][:session_id])
+                Backend::authData.delete(mail)
+
+                # The auth token has to be formated as in the specs: "The value of the id_token parameter is the ID Token, which is a signed JWT, containing three base64url encoded segments separated by period ('.') characters". The JWT gem shall take care of that in AuthToken.to_s                
+                HTTParty.post(authToken.aud + '/la_validate', {:body => {"id_token" => authToken.to_s}})
+                
                 return "Login confirmed"
             else
                 return "Something went wrong (invalid token?)"
             end
         end
-
-        get '/validate' do
-            # confirm to RP that access token is valid
-            mail = Backend::validTokens.delete(params[:token])
-            if mail
-                return mail
-            else
-                status 403
-            end
-        end
+        
     end
-
 end

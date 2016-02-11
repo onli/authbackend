@@ -9,7 +9,7 @@ module Letsauth
 
         def confirm
             Backend::pool.process {
-                token = Token.new()
+                token = MailToken.new()
                 Backend::mails[self.address] = token
                 self.askConfirmation(token)
             }
@@ -32,6 +32,7 @@ module Letsauth
 
         def askConfirmation(token)
             confirmationLink = Backend::serverURL + "mailConfirm?mail=" + self.address + '&token=' + token.to_s
+            puts confirmationLink
             Pony.mail(:to => self.address,
                         :from => "letsauth@example.org",
                         :subject => "Confirm Login",
